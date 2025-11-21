@@ -70,15 +70,23 @@ module mini_top(
     wire is_finished = (pc_out >= 16'd3); // STOP 상태
     wire auto_restart = is_finished && digit_pulse;
 
-    reg [3:0] reset_cnt;
-    // ESC를 누르거나, 자동 재시작 조건이면 카운터를 15로 설정
-    always @(posedge CLOCK_50) begin 
-        if (esc_pulse || auto_restart) reset_cnt <= 15; 
-        else if (reset_cnt > 0) reset_cnt <= reset_cnt - 1; 
-    end
-    
-    // 시스템 리셋 신호: KEY0(reset)이 눌렸거나(0), 내부 리셋 카운터가 돌고 있으면(0)
-    wire system_reset_n = reset && (reset_cnt == 0);
+   reg [24:0] reset_cnt;  // 비트를 확 늘림
+
+	always @(posedge CLOCK_50 or negedge reset) begin
+		 if (!reset) begin
+			  // KEY0로 리셋 걸면 카운터도 같이 0으로
+			  reset_cnt <= 0;
+		 end
+		 else if (esc_pulse) begin
+			  // ESC 누른 순간, 꽤 큰 값으로 로드
+			  reset_cnt <= 25'h1FFFFFF;  // 대략 0.6초 정도 유지
+		 end
+		 else if (reset_cnt != 0) begin
+			  reset_cnt <= reset_cnt - 1;
+		 end
+	end
+
+	wire system_reset_n = reset && (reset_cnt == 0);
 
     // 4. 연산자 저장소
     reg [2:0] saved_op;
